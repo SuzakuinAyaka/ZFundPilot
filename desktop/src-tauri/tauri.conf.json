@@ -11,6 +11,12 @@
     "active": true,
     "targets": ["nsis"],
     "icon": ["icons/icon.ico"],
-    "resources": { "../build/backend/zfundpilot-backend/": "backend/" }
+    "resources": { "../build/backend/zfundpilot-backend/": "backend/" },
+    "windows": {
+      "nsis": {
+        "languages": ["English", "SimpChinese"],
+        "displayLanguageSelector": true
+      }
+    }
   }
 }

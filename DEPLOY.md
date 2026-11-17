@@ -13,6 +13,8 @@
 
 首版提供 Windows x64 安装包。GitHub Actions 的 CI 在目标为 `main` 的 PR 和 `main` 更新时运行，前后端测试通过后生成 `ZFundPilot-windows-x64-<commit>` Artifact。下载并解压 Artifact，然后运行其中的 `*-setup.exe`。
 
+安装程序启动时可选择简体中文或英语。
+
 安装包包含 Tauri 桌面壳、Python 运行时、FastAPI 后端及已构建的网页。若系统缺少 Edge WebView2，安装程序会下载所需组件。应用在本机回环地址运行后端，关闭窗口时一并停止。更新净值等功能仍需要联网。
 
 桌面数据默认保存在 `%LOCALAPPDATA%\io.github.euzohn.zfundpilot\data`，启动日志在同级的 `backend.log`。已有 Web 或 Docker 实例的数据可从「设置 → 数据备份」导出，再在桌面版导入。
