@@ -1,11 +1,13 @@
 """由桌面壳启动的本地后端。"""
 
 import argparse
+import errno
 import os
 import secrets
 import socket
 import sys
 import threading
+from pathlib import Path
 
 import uvicorn
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -52,20 +54,62 @@ class DesktopAccess(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+def bind_listener(listener, preferred_port):
+    if sys.platform == "win32":
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+
+    try:
+        listener.bind((HOST, preferred_port))
+    except OSError as error:
+        # Windows 独占绑定冲突也可能报告 WSAEACCES（10013）。
+        if not preferred_port or (
+            error.errno != errno.EADDRINUSE and getattr(error, "winerror", None) not in (10013, 10048)
+        ):
+            raise
+        listener.bind((HOST, 0))
+        print(f"端口 {preferred_port} 无法绑定，已改用 {listener.getsockname()[1]}", file=sys.stderr)
+
+
+def lock_data_directory(home):
+    lock = (Path(home) / ".desktop.lock").open("a+b")
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as error:
+        lock.close()
+        if error.errno in (errno.EACCES, errno.EAGAIN):
+            raise RuntimeError("ZFundPilot 已经在运行，请先关闭现有窗口。") from error
+        raise
+    return lock
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=PORT)
     args = parser.parse_args()
-    if not os.environ.get("ZFUNDPILOT_HOME"):
+    home = os.environ.get("ZFUNDPILOT_HOME")
+    if not home:
         parser.error("ZFUNDPILOT_HOME is required")
+
+    sys.stdout.reconfigure(encoding="utf-8")
+    try:
+        directory_lock = lock_data_directory(home)
+    except RuntimeError as error:
+        print(f"error:{error}", flush=True)
+        return 1
 
     ready_output = sys.stdout
     sys.stdout = sys.stderr
     bootstrap = secrets.token_urlsafe(32)
-    with socket.socket() as listener:
-        if sys.platform == "win32":
-            listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-        listener.bind((HOST, args.port))
+    with directory_lock, socket.socket() as listener:
+        bind_listener(listener, args.port)
         port = listener.getsockname()[1]
 
         from zfundpilot.api import app
