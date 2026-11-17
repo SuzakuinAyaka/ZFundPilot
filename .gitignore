@@ -46,4 +46,7 @@ frontend/.env.local
 frontend/*.tsbuildinfo
 frontend/vite.config.d.ts
 frontend/vite.config.js
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
 data/auth.json

@@ -506,8 +506,7 @@ AI_VISION_MODEL: str = _ai_config.get("vision_model", "")
 # 应用时区，供定时任务和显式指定时区的 datetime 使用。
 TIMEZONE_STR = os.environ.get("ZFUNDPILOT_TIMEZONE", "Asia/Shanghai")
 TIMEZONE = ZoneInfo(TIMEZONE_STR)
-# 支持 tzset() 的平台将进程本地时间（包括 SQLite localtime）同步到应用时区。
-# Windows 原生 CPython 缺少该接口，本地时间仍取决于宿主机。
+# Windows 不提供 tzset()，进程本地时间沿用系统设置。
 if hasattr(time, "tzset"):
     os.environ["TZ"] = TIMEZONE_STR
     time.tzset()
