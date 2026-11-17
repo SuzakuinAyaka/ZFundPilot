@@ -2,7 +2,7 @@
 
 use std::{
     error::Error,
-    fs::{self, File},
+    fs::{self, OpenOptions},
     io::{self, BufRead, BufReader},
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
@@ -49,7 +49,7 @@ fn start_backend(
             .current_dir(home)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(File::create(log)?)
+            .stderr(OpenOptions::new().create(true).append(true).open(log)?)
             .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .spawn()?,
     );
@@ -62,6 +62,9 @@ fn start_backend(
     });
 
     let line = receiver.recv_timeout(Duration::from_secs(45))??;
+    if let Some(message) = line.trim().strip_prefix("error:") {
+        return Err(io::Error::other(message).into());
+    }
     let url = Url::parse(line.trim()).map_err(|_| io::Error::other("后端退出或未返回就绪地址"))?;
     if url.scheme() != "http"
         || url.host_str() != Some("127.0.0.1")
