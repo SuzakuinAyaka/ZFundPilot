@@ -7,12 +7,16 @@ use std::{
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
+    ptr::{null, null_mut},
     sync::{mpsc, Mutex},
     thread,
     time::{Duration, Instant},
 };
-use tauri::{Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
-use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR};
+use tauri::{webview::NewWindowResponse, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
+use windows_sys::Win32::UI::{
+    Shell::ShellExecuteW,
+    WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, SW_SHOWNORMAL},
+};
 
 struct Backend(Child);
 
@@ -78,13 +82,47 @@ fn open_main_window(app: &tauri::App, home: PathBuf) -> Result<(), Box<dyn Error
     let (backend, url) = start_backend(&executable, &home, &log)
         .map_err(|error| io::Error::other(format!("{error}\n日志：{}", log.display())))?;
     let origin = url.origin();
+    let app_url = url.join("/")?;
     WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
         .title("ZFundPilot")
         .inner_size(1280.0, 850.0)
         .on_navigation(move |target| target.origin() == origin)
+        .on_new_window(move |target, _features| {
+            if is_external_web_url(&target, &app_url) {
+                open_in_browser(&target);
+            }
+            NewWindowResponse::Deny
+        })
         .build()?;
     app.manage(Mutex::new(Some(backend)));
     Ok(())
+}
+
+fn is_external_web_url(target: &Url, app_url: &Url) -> bool {
+    matches!(target.scheme(), "http" | "https") && target.origin() != app_url.origin()
+}
+
+fn open_in_browser(target: &Url) {
+    let url: Vec<u16> = target.as_str().encode_utf16().chain([0]).collect();
+    let result = unsafe {
+        ShellExecuteW(
+            null_mut(),
+            null(),
+            url.as_ptr(),
+            null(),
+            null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    if result as isize <= 32 {
+        show_error("无法打开系统默认浏览器。请检查 Windows 中的默认浏览器设置。");
+    }
+}
+
+fn show_error(message: &str) {
+    let message: Vec<u16> = message.encode_utf16().chain([0]).collect();
+    let title: Vec<u16> = "ZFundPilot\0".encode_utf16().collect();
+    unsafe { MessageBoxW(null_mut(), message.as_ptr(), title.as_ptr(), MB_ICONERROR) };
 }
 
 fn main() {
@@ -92,18 +130,7 @@ fn main() {
         .setup(|app| {
             let home = app.path().app_local_data_dir()?;
             if let Err(error) = open_main_window(app, home) {
-                let message: Vec<u16> = format!("ZFundPilot 启动失败\n{error}\0")
-                    .encode_utf16()
-                    .collect();
-                let title: Vec<u16> = "ZFundPilot\0".encode_utf16().collect();
-                unsafe {
-                    MessageBoxW(
-                        std::ptr::null_mut(),
-                        message.as_ptr(),
-                        title.as_ptr(),
-                        MB_ICONERROR,
-                    )
-                };
+                show_error(&format!("ZFundPilot 启动失败\n{error}"));
                 app.handle().exit(1);
             }
             Ok(())
@@ -117,4 +144,24 @@ fn main() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_external_web_urls_open_in_the_browser() {
+        let app_url = Url::parse("http://127.0.0.1:48753/").unwrap();
+        for (address, allowed) in [
+            ("https://github.com/Euzohn/ZFundPilot", true),
+            ("http://example.org/", true),
+            ("http://127.0.0.1:48753/_desktop/bootstrap", false),
+            ("file:///C:/Windows/", false),
+            ("ms-settings:privacy", false),
+        ] {
+            let target = Url::parse(address).unwrap();
+            assert_eq!(is_external_web_url(&target, &app_url), allowed, "{address}");
+        }
+    }
 }
