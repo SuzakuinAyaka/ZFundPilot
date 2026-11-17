@@ -1,14 +1,30 @@
 # 部署指南
 
-本指南覆盖三种部署方式，按复杂度递增：
-
 | 方式 | 适用场景 | 需要启动的进程 |
 |------|---------|--------------|
+| [Windows 桌面版](#windows-桌面版) | 个人日常使用 | 双击启动 |
 | [开发模式](#1-开发模式) | 本地开发调试 | 后端 + 前端各一个终端 |
 | [生产模式](#2-生产模式单进程) | 个人日常使用 | 仅后端一个进程 |
 | [Docker](#3-docker-部署) | 环境隔离 / 服务器部署 | 一个容器 |
 
 ---
+
+## Windows 桌面版
+
+首版提供 Windows x64 安装包。GitHub Actions 的 CI 在目标为 `main` 的 PR 和 `main` 更新时运行，前后端测试通过后生成 `ZFundPilot-windows-x64-<commit>` Artifact。下载并解压 Artifact，然后运行其中的 `*-setup.exe`。
+
+安装包包含 Tauri 桌面壳、Python 运行时、FastAPI 后端及已构建的网页。若系统缺少 Edge WebView2，安装程序会下载所需组件。应用在本机回环地址运行后端，关闭窗口时一并停止。更新净值等功能仍需要联网。
+
+桌面数据默认保存在 `%LOCALAPPDATA%\io.github.euzohn.zfundpilot\data`，启动日志在同级的 `backend.log`。已有 Web 或 Docker 实例的数据可从「设置 → 数据备份」导出，再在桌面版导入。
+
+在 Windows x64 上从源码构建，需要 PowerShell 7、Python 3.12、Node.js 22、Rust MSVC 工具链和 Visual Studio C++ Build Tools。在仓库根目录执行以下命令。
+
+```powershell
+python -m pip install -e . pyinstaller==6.22.3
+./desktop/build.ps1
+```
+
+脚本会构建网页、打包并启动验证 Python 后端，再生成 NSIS 安装程序。安装包位于 `desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`。
 
 ## 前置条件
 
