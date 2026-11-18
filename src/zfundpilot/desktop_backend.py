@@ -93,7 +93,16 @@ def lock_data_directory(home):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=PORT)
+    parser.add_argument("--check-runtime", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.check_runtime:
+        from py_mini_racer import MiniRacer
+
+        with MiniRacer() as runtime:
+            if runtime.eval("6 * 7") != 42:
+                raise RuntimeError("MiniRacer 无法执行 JavaScript")
+        return 0
+
     home = os.environ.get("ZFUNDPILOT_HOME")
     if not home:
         parser.error("ZFUNDPILOT_HOME is required")

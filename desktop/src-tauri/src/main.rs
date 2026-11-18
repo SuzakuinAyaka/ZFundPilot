@@ -1,18 +1,23 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 use std::{
     error::Error,
     fs::{self, OpenOptions},
     io::{self, BufRead, BufReader},
-    os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    ptr::{null, null_mut},
     sync::{mpsc, Mutex},
     thread,
     time::{Duration, Instant},
 };
+#[cfg(windows)]
+use std::{
+    os::windows::process::CommandExt,
+    ptr::{null, null_mut},
+};
 use tauri::{webview::NewWindowResponse, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
+
+#[cfg(windows)]
 use windows_sys::Win32::UI::{
     Shell::ShellExecuteW,
     WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, SW_SHOWNORMAL},
@@ -42,17 +47,17 @@ fn start_backend(
     home: &Path,
     log: &Path,
 ) -> Result<(Backend, Url), Box<dyn Error>> {
-    let mut backend = Backend(
-        Command::new(executable)
-            .env("ZFUNDPILOT_HOME", home)
-            .env("PYTHONUTF8", "1")
-            .current_dir(home)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(OpenOptions::new().create(true).append(true).open(log)?)
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW
-            .spawn()?,
-    );
+    let mut command = Command::new(executable);
+    command
+        .env("ZFUNDPILOT_HOME", home)
+        .env("PYTHONUTF8", "1")
+        .current_dir(home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(OpenOptions::new().create(true).append(true).open(log)?);
+    #[cfg(windows)]
+    command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    let mut backend = Backend(command.spawn()?);
     let stdout = backend.0.stdout.take().expect("stdout is piped");
     let (sender, receiver) = mpsc::sync_channel(1);
     thread::spawn(move || {
@@ -77,10 +82,10 @@ fn start_backend(
 
 fn open_main_window(app: &tauri::App, home: PathBuf) -> Result<(), Box<dyn Error>> {
     fs::create_dir_all(&home)?;
-    let executable = app
-        .path()
-        .resource_dir()?
-        .join("backend/zfundpilot-backend.exe");
+    let executable = app.path().resource_dir()?.join("backend").join(format!(
+        "zfundpilot-backend{}",
+        std::env::consts::EXE_SUFFIX
+    ));
     let log = home.join("backend.log");
     let (backend, url) = start_backend(&executable, &home, &log)
         .map_err(|error| io::Error::other(format!("{error}\n日志：{}", log.display())))?;
@@ -105,6 +110,7 @@ fn is_external_web_url(target: &Url, app_url: &Url) -> bool {
     matches!(target.scheme(), "http" | "https") && target.origin() != app_url.origin()
 }
 
+#[cfg(windows)]
 fn open_in_browser(target: &Url) {
     let url: Vec<u16> = target.as_str().encode_utf16().chain([0]).collect();
     let result = unsafe {
@@ -122,10 +128,39 @@ fn open_in_browser(target: &Url) {
     }
 }
 
+#[cfg(windows)]
 fn show_error(message: &str) {
     let message: Vec<u16> = message.encode_utf16().chain([0]).collect();
     let title: Vec<u16> = "ZFundPilot\0".encode_utf16().collect();
     unsafe { MessageBoxW(null_mut(), message.as_ptr(), title.as_ptr(), MB_ICONERROR) };
+}
+
+#[cfg(target_os = "linux")]
+fn open_in_browser(target: &Url) {
+    let mut command = Command::new("xdg-open");
+    command.arg(target.as_str());
+    // 系统浏览器应加载系统库，避免继承 AppImage 的库搜索路径。
+    if std::env::var_os("APPIMAGE").is_some() {
+        command.env_remove("LD_LIBRARY_PATH");
+        command.env_remove("LD_PRELOAD");
+        command.env_remove("GIO_EXTRA_MODULES");
+        command.env_remove("GDK_PIXBUF_MODULE_FILE");
+    }
+    match command.spawn() {
+        Ok(mut child) => {
+            thread::spawn(move || {
+                if !child.wait().is_ok_and(|status| status.success()) {
+                    show_error("无法打开系统默认浏览器。");
+                }
+            });
+        }
+        Err(error) => show_error(&format!("无法打开系统默认浏览器：{error}")),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn show_error(message: &str) {
+    eprintln!("{message}");
 }
 
 fn main() {

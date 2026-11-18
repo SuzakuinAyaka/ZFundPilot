@@ -2,33 +2,51 @@
 
 | 方式 | 适用场景 | 需要启动的进程 |
 |------|---------|--------------|
-| [Windows 桌面版](#windows-桌面版) | 个人日常使用 | 双击启动 |
+| [桌面版](#桌面版) | 个人日常使用 | 双击启动 |
 | [开发模式](#1-开发模式) | 本地开发调试 | 后端 + 前端各一个终端 |
 | [生产模式](#2-生产模式单进程) | 个人日常使用 | 仅后端一个进程 |
 | [Docker](#3-docker-部署) | 环境隔离 / 服务器部署 | 一个容器 |
 
 ---
 
-## Windows 桌面版
+## 桌面版
 
-首版提供 Windows x64 安装包。GitHub Actions 的 CI 在目标为 `main` 的 PR 和 `main` 更新时运行，前后端测试通过后生成 `ZFundPilot-windows-x64-<commit>` Artifact。下载并解压 Artifact，然后运行其中的 `*-setup.exe`。
+Windows x64 提供 NSIS 安装包，Linux x86_64 提供 `.deb` 和 AppImage。三种安装包均包含桌面壳、Python 运行时、FastAPI 后端和已构建的前端。应用通过本机回环地址运行后端，关闭窗口时停止后端。更新净值等功能仍需要联网。
 
-安装程序启动时可选择简体中文或英语。
+- Windows 安装程序可选简体中文或英语，系统缺少 Edge WebView2 时会下载该组件。
+- Linux 构建以 Ubuntu 22.04 为基线。使用 `sudo apt install ./ZFundPilot_*_amd64.deb` 安装 Debian 包。使用 AppImage 时，先执行 `chmod +x ZFundPilot_*_amd64.AppImage`，再运行该文件。AppImage 使用系统的 `tzdata` 和 `xdg-utils`。没有 FUSE 的环境可向 AppImage 传递 `--appimage-extract-and-run`。
 
-桌面后端默认使用 `127.0.0.1:48753`。遇到端口冲突时会自动切换到系统分配的空闲端口，数据目录保持不变。切换端口时可能需要重新登录。
+桌面后端默认使用 `127.0.0.1:48753`。遇到端口冲突时会使用空闲端口，端口变化后可能需要重新登录。Windows 数据保存在 `%LOCALAPPDATA%\io.github.euzohn.zfundpilot\data`。Linux 数据保存在 `${XDG_DATA_HOME:-$HOME/.local/share}/io.github.euzohn.zfundpilot/data`。启动日志是 `data` 目录旁的 `backend.log`。可通过「设置 → 数据备份」导入已有 Web 或 Docker 实例的数据。
 
-安装包包含 Tauri 桌面壳、Python 运行时、FastAPI 后端及已构建的网页。若系统缺少 Edge WebView2，安装程序会下载所需组件。应用在本机回环地址运行后端，关闭窗口时一并停止。更新净值等功能仍需要联网。
+### GitHub Actions 与发布
 
-桌面数据默认保存在 `%LOCALAPPDATA%\io.github.euzohn.zfundpilot\data`，启动日志在同级的 `backend.log`。已有 Web 或 Docker 实例的数据可从「设置 → 数据备份」导出，再在桌面版导入。
+推送到 `main` 或 `codex/desktop-packaging`、提交面向 `main` 的 PR，都会运行 CI。前后端检查通过后，Windows 与 Linux 安装包可在该次运行的 Artifacts 下载。Fork 仓库须启用 GitHub Actions。
 
-在 Windows x64 上从源码构建，需要 PowerShell 7、Python 3.12、Node.js 22、Rust MSVC 工具链和 Visual Studio C++ Build Tools。在仓库根目录执行以下命令。
+推送版本标签 `vX.Y.Z` 后，流水线在测试和两个平台的打包都通过时，将三个安装包发布到该仓库的 GitHub Releases。标签应指向包含该工作流的提交，并与 `frontend/package.json` 中的版本一致。
+
+### 从源码打包
+
+Windows x64 需要 PowerShell 7、Python 3.12、Node.js 22、Rust MSVC 工具链和 Visual Studio C++ Build Tools。在仓库根目录执行以下命令。
 
 ```powershell
 python -m pip install -e . pyinstaller==6.22.3
 ./desktop/build.ps1
 ```
 
-脚本会构建网页、打包并启动验证 Python 后端，再生成 NSIS 安装程序。安装包位于 `desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`。
+安装包位于 `desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`。
+
+在 Ubuntu 22.04 x86_64 安装 Python 3.12、Node.js 22 和 Rust stable 后，在仓库根目录执行以下命令。
+
+```bash
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+  build-essential libwebkit2gtk-4.1-dev libssl-dev libxdo-dev \
+  libayatana-appindicator3-dev librsvg2-dev file patchelf tzdata
+python -m pip install -e . pyinstaller==6.22.3
+bash desktop/build.sh
+```
+
+安装包位于 `desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/` 的 `deb/` 和 `appimage/` 子目录。构建脚本会用临时数据目录验证两个包内的后端。
 
 ## 前置条件
 

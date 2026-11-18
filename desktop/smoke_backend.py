@@ -57,8 +57,10 @@ def verify_backend(executable, home, occupied_port):
 
 
 if __name__ == "__main__":
+    executable = Path(sys.argv[1]).resolve()
+    subprocess.run([str(executable), "--check-runtime"], check=True, timeout=20)
     with TemporaryDirectory(prefix="zfundpilot-smoke-") as directory, socket.socket() as occupied:
         occupied.bind(("127.0.0.1", 0))
         occupied.listen()
-        verify_backend(Path(sys.argv[1]).resolve(), Path(directory), occupied.getsockname()[1])
+        verify_backend(executable, Path(directory), occupied.getsockname()[1])
     print("桌面后端冒烟验证通过")
