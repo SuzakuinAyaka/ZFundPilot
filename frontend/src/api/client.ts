@@ -59,6 +59,12 @@ import type {
 import { getToken, clearToken } from "@/lib/auth"
 import { getCurrentLang } from "@/i18n/LanguageContext"
 
+declare global {
+  interface Window {
+    zfundpilotSaveDownload?: (filename: string, bytes: ArrayBuffer) => Promise<boolean>
+  }
+}
+
 const BASE = "/api"
 
 const ERR_401 = { zh: "未登录或登录已过期", en: "Not authenticated or session expired" }
@@ -116,12 +122,16 @@ async function downloadWithAuth(url: string, filename: string) {
   if (token) headers["Authorization"] = `Bearer ${token}`
   const res = await fetch(`${BASE}${url}`, { headers })
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+  if (window.zfundpilotSaveDownload) {
+    return window.zfundpilotSaveDownload(filename, await res.arrayBuffer())
+  }
   const blob = await res.blob()
   const a = document.createElement("a")
   a.href = URL.createObjectURL(blob)
   a.download = filename
   a.click()
   URL.revokeObjectURL(a.href)
+  return true
 }
 
 async function uploadWithAuth<T>(url: string, form: FormData): Promise<T> {

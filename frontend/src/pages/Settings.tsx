@@ -2143,8 +2143,7 @@ export default function Settings() {
                   size="sm"
                   onClick={async () => {
                     try {
-                      await api.exportZip()
-                      toast.success(t.settings.backupExported)
+                      if (await api.exportZip()) toast.success(t.settings.backupExported)
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : t.settings.backupFailed)
                     }
