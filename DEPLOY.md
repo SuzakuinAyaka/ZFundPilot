@@ -24,7 +24,7 @@ Fork 的 `main` 用于同步 `upstream/main`。同步后，将更新后的 `main
 
 基于桌面分支开发的功能分支在推送时运行前后端测试和静态检查。提交面向桌面分支的 PR 也会验证合并结果。修改桌面代码、打包工作流或构建依赖的 PR 会额外运行 Windows 和 Linux 打包冒烟。冒烟产物仅用于检查。
 
-将 `desktop-vX.Y.Z` 标签打在准备发布的桌面分支提交上。版本号须与 `frontend/package.json` 一致。将标签推送到 fork 后，CI 先跑测试，再构建 Windows 和 Linux 安装包，并将三个安装包发布到该 fork 的 GitHub Releases。供发行任务传递文件的 Actions Artifacts 保留 7 天。
+将 `vX.Y.Z-rN` 标签打在准备发布的桌面分支提交上，并推送到 fork。`X.Y.Z` 须与 `frontend/package.json` 的应用版本一致，`N` 是纯数字的桌面修订号。例如，基于应用版本 `0.27.0` 的桌面修订可依次发布为 `v0.27.0-r1`、`v0.27.0-r2`。安装包的应用版本取 `X.Y.Z`。CI 完成标签校验和前后端测试后，构建 Windows 和 Linux 安装包，并将三个安装包发布到该 fork 的 GitHub Releases。供发行任务传递文件的 Actions Artifacts 保留 7 天。
 
 ### 从源码打包
 

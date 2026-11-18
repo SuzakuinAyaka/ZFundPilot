@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches: ['**']
-    tags: ['desktop-v[0-9]+.[0-9]+.[0-9]+']
+    tags: ['v[0-9]+.[0-9]+.[0-9]+-r[0-9]+']
   pull_request:
     branches: [main, codex/desktop-packaging]
 
@@ -56,6 +56,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: 核对发布标签与桌面应用版本
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(jq -er '.version' frontend/package.json)
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+$ || "${GITHUB_REF_NAME%-r*}" != "v$version" ]]; then
+            echo "::error::发布标签必须为 vX.Y.Z-rN，且 X.Y.Z 必须等于桌面应用版本 $version"
+            exit 1
+          fi
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -81,7 +89,7 @@ jobs:
         run: npm test
 
   desktop:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/desktop-v')
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [backend, frontend]
     uses: ./.github/workflows/desktop-build.yml
     with:
@@ -94,16 +102,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: 核对发布标签与桌面应用版本
-        run: |
-          version=$(jq -er '.version' frontend/package.json)
-          if [[ ! "$GITHUB_REF_NAME" =~ ^desktop-v[0-9]+\.[0-9]+\.[0-9]+$ || "$GITHUB_REF_NAME" != "desktop-v$version" ]]; then
-            echo "::error::发布标签必须为 desktop-vX.Y.Z，且与桌面应用版本 $version 一致"
-            exit 1
-          fi
       - uses: actions/download-artifact@v4
         with:
           pattern: ZFundPilot-*-${{ github.sha }}
