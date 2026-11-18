@@ -57,6 +57,9 @@ def verify_backend(executable, home, occupied_port):
 
 
 if __name__ == "__main__":
+    # Windows CI 重定向标准流时可能沿用本地代码页。
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
     executable = Path(sys.argv[1]).resolve()
     subprocess.run([str(executable), "--check-runtime"], check=True, timeout=20)
     with TemporaryDirectory(prefix="zfundpilot-smoke-") as directory, socket.socket() as occupied:
