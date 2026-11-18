@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import FeeBreakdownCard from "@/components/FeeBreakdownCard"
 import { ChevronDown, ChevronRight, Eye, EyeOff, ShieldAlert, Lightbulb, PlusCircle, Newspaper } from "lucide-react"
 import { Bot, Send, Search, Plus, Check, X, Loader2, Clock, Pencil } from "lucide-react"
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { formatRelativeTime, formatTokens, money } from "@/lib/format"
 import LogoTyping from "@/components/LogoTyping"
@@ -21,6 +21,22 @@ import { useLang } from "@/i18n/LanguageContext"
 import { useChat, extractToolCall, stripJsonBlock, type ExtractedTx } from "@/contexts/ChatContext"
 
 const QUICK_PROMPT_ICONS = [ShieldAlert, Lightbulb, PlusCircle, Newspaper]
+
+const markdownComponents: Components = {
+  a: ({ node: _node, ...props }) => {
+    if (props.href && "isTauri" in window && window.isTauri === true) {
+      try {
+        const url = new URL(props.href, window.location.href)
+        if ((url.protocol === "http:" || url.protocol === "https:") && url.origin !== window.location.origin) {
+          return <a {...props} target="_blank" rel="noopener noreferrer" />
+        }
+      } catch {
+        // 保留无法解析的链接，由 WebView 的导航策略处理。
+      }
+    }
+    return <a {...props} />
+  },
+}
 
 export default function AIChat() {
   const { t } = useLang()
@@ -306,7 +322,7 @@ export default function AIChat() {
                       </div>
                     ) : display ? (
                       <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:mb-1 prose-headings:mt-2">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{display}</ReactMarkdown>
+                        <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>{display}</ReactMarkdown>
                       </div>
                     ) : streaming && i === messages.length - 1 ? (
                       <span className="inline-flex items-center gap-2 text-muted-foreground text-sm">
