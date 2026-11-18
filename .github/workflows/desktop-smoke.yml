@@ -1,0 +1,22 @@
+name: 桌面打包冒烟
+
+on:
+  pull_request:
+    branches: [codex/desktop-packaging]
+    paths:
+      - 'desktop/**'
+      - 'src/zfundpilot/desktop_backend.py'
+      - 'pyproject.toml'
+      - 'frontend/package*.json'
+      - '.github/workflows/desktop-*.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    uses: ./.github/workflows/desktop-build.yml

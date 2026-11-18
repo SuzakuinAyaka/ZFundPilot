@@ -20,9 +20,11 @@ Windows x64 提供 NSIS 安装包，Linux x86_64 提供 `.deb` 和 AppImage。�
 
 ### GitHub Actions 与发布
 
-推送到 `main` 或 `codex/desktop-packaging`、提交面向 `main` 的 PR，都会运行 CI。前后端检查通过后，Windows 与 Linux 安装包可在该次运行的 Artifacts 下载。Fork 仓库须启用 GitHub Actions。
+Fork 的 `main` 用于同步 `upstream/main`。同步后，将更新后的 `main` 合入长期维护的 `codex/desktop-packaging`。桌面功能从该分支开发，并通过 PR 合回该分支。
 
-推送版本标签 `vX.Y.Z` 后，流水线在测试和两个平台的打包都通过时，将三个安装包发布到该仓库的 GitHub Releases。标签应指向包含该工作流的提交，并与 `frontend/package.json` 中的版本一致。
+基于桌面分支开发的功能分支在推送时运行前后端测试和静态检查。提交面向桌面分支的 PR 也会验证合并结果。修改桌面代码、打包工作流或构建依赖的 PR 会额外运行 Windows 和 Linux 打包冒烟。冒烟产物仅用于检查。
+
+将 `desktop-vX.Y.Z` 标签打在准备发布的桌面分支提交上。版本号须与 `frontend/package.json` 一致。将标签推送到 fork 后，CI 先跑测试，再构建 Windows 和 Linux 安装包，并将三个安装包发布到该 fork 的 GitHub Releases。供发行任务传递文件的 Actions Artifacts 保留 7 天。
 
 ### 从源码打包
 
