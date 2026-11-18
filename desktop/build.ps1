@@ -17,7 +17,7 @@ try {
         --name zfundpilot-backend --paths src `
         --distpath desktop/build/backend --workpath desktop/build/work `
         --specpath desktop/build --add-data "${FrontendDist}:frontend/dist" `
-        --collect-data akshare --collect-data tzdata `
+        --collect-data akshare --collect-data tzdata --collect-all py_mini_racer `
         --hidden-import uvicorn.loops.asyncio --hidden-import uvicorn.lifespan.on `
         src/zfundpilot/desktop_backend.py
 

@@ -1,4 +1,4 @@
-name: Windows 桌面包
+name: 桌面安装包
 
 on:
   workflow_call:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  package:
+  windows:
     runs-on: windows-2025
     timeout-minutes: 45
     steps:
@@ -38,3 +38,42 @@ jobs:
           name: ZFundPilot-windows-x64-${{ github.sha }}
           path: desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
+          overwrite: true
+
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+      - name: 安装 Linux 构建依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libwebkit2gtk-4.1-dev libssl-dev libxdo-dev \
+            libayatana-appindicator3-dev librsvg2-dev file patchelf tzdata
+          rustup update stable
+          rustup default stable
+      - name: 安装后端构建依赖
+        run: python -m pip install -e . pyinstaller==6.22.3
+      - name: 构建并验证 Linux 安装包
+        run: bash desktop/build.sh
+      - name: 上传 Linux 安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZFundPilot-linux-x64-${{ github.sha }}
+          path: |
+            desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+            desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+          overwrite: true
