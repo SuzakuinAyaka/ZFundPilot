@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main, codex/desktop-packaging]
-    tags: ['v*']
+    branches: ['**']
+    tags: ['desktop-v[0-9]+.[0-9]+.[0-9]+']
   pull_request:
-    branches: [main]
+    branches: [main, codex/desktop-packaging]
 
 # 避免同一分支重复并发导致资源争用；新提交会取消旧运行
 concurrency:
@@ -72,6 +72,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Build
+        if: github.ref_type == 'tag'
         working-directory: frontend
         run: npm run build
 
@@ -80,11 +81,13 @@ jobs:
         run: npm test
 
   desktop:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/desktop-v')
     needs: [backend, frontend]
     uses: ./.github/workflows/desktop-build.yml
+    with:
+      upload-artifacts: true
 
   release:
-    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: desktop
     runs-on: ubuntu-22.04
     timeout-minutes: 15
@@ -97,8 +100,8 @@ jobs:
       - name: 核对发布标签与桌面应用版本
         run: |
           version=$(jq -er '.version' frontend/package.json)
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ || "$GITHUB_REF_NAME" != "v$version" ]]; then
-            echo "::error::发布标签必须为 vX.Y.Z，且与桌面应用版本 v$version 一致"
+          if [[ ! "$GITHUB_REF_NAME" =~ ^desktop-v[0-9]+\.[0-9]+\.[0-9]+$ || "$GITHUB_REF_NAME" != "desktop-v$version" ]]; then
+            echo "::error::发布标签必须为 desktop-vX.Y.Z，且与桌面应用版本 $version 一致"
             exit 1
           fi
       - uses: actions/download-artifact@v4

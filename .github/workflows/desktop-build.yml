@@ -2,6 +2,10 @@ name: 桌面安装包
 
 on:
   workflow_call:
+    inputs:
+      upload-artifacts:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,12 +37,14 @@ jobs:
         shell: pwsh
         run: ./desktop/build.ps1
       - name: 上传 Windows 安装包
+        if: inputs.upload-artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ZFundPilot-windows-x64-${{ github.sha }}
           path: desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           overwrite: true
+          retention-days: 7
 
   linux:
     runs-on: ubuntu-22.04
@@ -69,6 +75,7 @@ jobs:
       - name: 构建并验证 Linux 安装包
         run: bash desktop/build.sh
       - name: 上传 Linux 安装包
+        if: inputs.upload-artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ZFundPilot-linux-x64-${{ github.sha }}
@@ -77,3 +84,4 @@ jobs:
             desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
           if-no-files-found: error
           overwrite: true
+          retention-days: 7
