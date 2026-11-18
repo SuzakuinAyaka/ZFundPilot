@@ -15,7 +15,11 @@ use std::{
     os::windows::process::CommandExt,
     ptr::{null, null_mut},
 };
-use tauri::{webview::NewWindowResponse, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    ipc::{CapabilityBuilder, InvokeBody, Request},
+    webview::NewWindowResponse,
+    Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 
 #[cfg(windows)]
 use windows_sys::Win32::UI::{
@@ -91,7 +95,21 @@ fn open_main_window(app: &tauri::App, home: PathBuf) -> Result<(), Box<dyn Error
         .map_err(|error| io::Error::other(format!("{error}\n日志：{}", log.display())))?;
     let origin = url.origin();
     let app_url = url.join("/")?;
+    app.add_capability(
+        CapabilityBuilder::new("desktop-download")
+            .local(false)
+            .remote(format!("{}/*", origin.ascii_serialization()))
+            .window("main")
+            .permission("allow-save-download"),
+    )?;
     WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
+        .initialization_script(
+            r#"Object.defineProperty(window, "zfundpilotSaveDownload", {
+                value: (filename, bytes) => window.__TAURI_INTERNALS__.invoke(
+                    "save_download", bytes, { headers: { "zfundpilot-filename": filename } }
+                ).catch(error => { throw new Error(String(error)); })
+            });"#,
+        )
         .title("ZFundPilot")
         .inner_size(1280.0, 850.0)
         .on_navigation(move |target| target.origin() == origin)
@@ -104,6 +122,47 @@ fn open_main_window(app: &tauri::App, home: PathBuf) -> Result<(), Box<dyn Error
         .build()?;
     app.manage(Mutex::new(Some(backend)));
     Ok(())
+}
+
+#[tauri::command]
+async fn save_download(window: WebviewWindow, request: Request<'_>) -> Result<bool, String> {
+    let filename = request
+        .headers()
+        .get("zfundpilot-filename")
+        .and_then(|value| value.to_str().ok())
+        .filter(|filename| valid_export_filename(filename))
+        .ok_or("无效的导出文件名")?;
+    let bytes = match request.body() {
+        InvokeBody::Raw(bytes) => bytes.clone(),
+        // Tauri 回退到 postMessage 时，二进制数据会被序列化为 JSON 字节数组。
+        InvokeBody::Json(value) => {
+            serde_json::from_value(value.clone()).map_err(|_| "无效的导出文件内容")?
+        }
+    };
+    let mut dialog = rfd::AsyncFileDialog::new()
+        .set_parent(&window)
+        .set_file_name(filename);
+    if let Ok(directory) = window.path().download_dir() {
+        dialog = dialog.set_directory(directory);
+    }
+    let Some(file) = dialog.save_file().await else {
+        return Ok(false);
+    };
+    file.write(&bytes)
+        .await
+        .map_err(|error| format!("保存文件失败：{error}"))?;
+    Ok(true)
+}
+
+fn valid_export_filename(filename: &str) -> bool {
+    let Some((stem, extension)) = filename.rsplit_once('.') else {
+        return false;
+    };
+    matches!(extension, "csv" | "zip")
+        && !stem.is_empty()
+        && stem
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
 }
 
 fn is_external_web_url(target: &Url, app_url: &Url) -> bool {
@@ -165,6 +224,7 @@ fn show_error(message: &str) {
 
 fn main() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![save_download])
         .setup(|app| {
             let home = app.path().app_local_data_dir()?;
             if let Err(error) = open_main_window(app, home) {
@@ -187,6 +247,26 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn export_filename_is_a_csv_or_zip_basename() {
+        for filename in [
+            "transactions_template.csv",
+            "transactions_2026-11-18_1500.csv",
+            "zfundpilot_backup_20261118.zip",
+        ] {
+            assert!(valid_export_filename(filename), "{filename}");
+        }
+        for filename in [
+            "../file.csv",
+            "dir\\file.csv",
+            "C:\\file.zip",
+            ".csv",
+            "file.csv.exe",
+        ] {
+            assert!(!valid_export_filename(filename), "{filename}");
+        }
+    }
 
     #[test]
     fn only_external_web_urls_open_in_the_browser() {

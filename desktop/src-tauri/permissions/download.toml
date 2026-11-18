@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-save-download"
+description = "在桌面主窗口中打开系统另存为对话框并保存导出文件。"
+commands.allow = ["save_download"]

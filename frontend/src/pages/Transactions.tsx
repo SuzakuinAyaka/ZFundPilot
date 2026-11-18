@@ -1178,7 +1178,7 @@ function TransactionList({ onEdit, onViewFund }: { onEdit: (tx: Transaction) => 
       <CardHeader className="flex-row items-center justify-between flex-wrap gap-2">
         <CardTitle className="text-base">{t.transactions.transactionFlow}</CardTitle>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={async () => { try { await api.exportCsv(); toast.success(t.transactions.csvExported) } catch (e) { toast.error(translateBackendError(String(e))) } }}>
+          <Button variant="outline" size="sm" onClick={async () => { try { if (await api.exportCsv()) toast.success(t.transactions.csvExported) } catch (e) { toast.error(translateBackendError(String(e))) } }}>
             <FileDown className="mr-1 h-4 w-4" /> {t.transactions.exportCsv}
           </Button>
           <Button variant="destructive" size="sm" onClick={() => { setShowClearConfirm(true); setClearConfirmText("") }}>
@@ -1469,7 +1469,7 @@ function CSVImportExport() {
             <code className="rounded bg-muted px-1">amount</code>/<code className="rounded bg-muted px-1">shares</code>/<code className="rounded bg-muted px-1">nav</code> {t.transactions.csvAtLeastTwo}
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => api.downloadTemplate()}>
+            <Button variant="outline" onClick={() => api.downloadTemplate().catch(e => toast.error(translateBackendError(String(e))))}>
               <Download className="mr-1 h-4 w-4" /> {t.transactions.downloadTemplate}
             </Button>
             <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98]">
@@ -1540,7 +1540,7 @@ function CSVImportExport() {
       <Card>
         <CardHeader><CardTitle className="text-base">{t.transactions.exportTitle}</CardTitle></CardHeader>
         <CardContent>
-          <Button variant="outline" onClick={() => api.exportCsv()}>
+          <Button variant="outline" onClick={() => api.exportCsv().catch(e => toast.error(translateBackendError(String(e))))}>
             <FileDown className="mr-1 h-4 w-4" /> {t.transactions.exportAsCsv}
           </Button>
         </CardContent>
