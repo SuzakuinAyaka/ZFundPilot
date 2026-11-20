@@ -112,6 +112,7 @@ fn open_main_window(app: &tauri::App, home: PathBuf) -> Result<(), Box<dyn Error
         )
         .title("ZFundPilot")
         .inner_size(1280.0, 850.0)
+        .min_inner_size(800.0, 600.0)
         .on_navigation(move |target| target.origin() == origin)
         .on_new_window(move |target, _features| {
             if is_external_web_url(&target, &app_url) {
