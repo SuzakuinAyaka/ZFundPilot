@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ZFUNDPILOT_DESKTOP_RELEASE: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
 jobs:
   windows:
     runs-on: windows-2025

@@ -84,6 +84,22 @@ fn start_backend(
     Ok((backend, url))
 }
 
+fn desktop_display_version<'a>(version: &'a str, release_tag: Option<&'a str>) -> &'a str {
+    let Some(tag) = release_tag.and_then(|tag| tag.strip_prefix('v')) else {
+        return version;
+    };
+    match tag.split_once("-r") {
+        Some((base, revision))
+            if base == version
+                && !revision.is_empty()
+                && revision.bytes().all(|byte| byte.is_ascii_digit()) =>
+        {
+            tag
+        }
+        _ => version,
+    }
+}
+
 fn open_main_window(app: &tauri::App, home: PathBuf) -> Result<(), Box<dyn Error>> {
     fs::create_dir_all(&home)?;
     let executable = app.path().resource_dir()?.join("backend").join(format!(
@@ -102,7 +118,14 @@ fn open_main_window(app: &tauri::App, home: PathBuf) -> Result<(), Box<dyn Error
             .window("main")
             .permission("allow-save-download"),
     )?;
+    let version = app.package_info().version.to_string();
+    let display_version =
+        desktop_display_version(&version, option_env!("ZFUNDPILOT_DESKTOP_RELEASE"));
     WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
+        .initialization_script(format!(
+            "Object.defineProperty(window, 'zfundpilotDesktopVersion', {{ value: {} }});",
+            serde_json::to_string(display_version)?
+        ))
         .initialization_script(
             r#"Object.defineProperty(window, "zfundpilotSaveDownload", {
                 value: (filename, bytes) => window.__TAURI_INTERNALS__.invoke(
@@ -266,6 +289,19 @@ mod tests {
             "file.csv.exe",
         ] {
             assert!(!valid_export_filename(filename), "{filename}");
+        }
+    }
+
+    #[test]
+    fn only_a_matching_release_tag_adds_the_desktop_revision() {
+        for (tag, expected) in [
+            (Some("v0.28.1-r2"), "0.28.1-r2"),
+            (Some("v0.28.0-r2"), "0.28.1"),
+            (Some("v0.28.1-r"), "0.28.1"),
+            (Some("v0.28.1-r2-dev"), "0.28.1"),
+            (None, "0.28.1"),
+        ] {
+            assert_eq!(desktop_display_version("0.28.1", tag), expected);
         }
     }
 

@@ -37,13 +37,14 @@ import { useLang, type Lang } from "@/i18n/LanguageContext"
 import { cn } from "@/lib/utils"
 import { copyText } from "@/lib/clipboard"
 import { useTabParam } from "@/hooks/useTabParam"
+import DesktopAbout from "./DesktopAbout"
 import type { AIUsageStats, AIUsageDaily, AgentTokenInfo, AgentTokenListResponse, AgentWriteSettings, AuditLog, BackupPreview, KeywordMaps, SchedulerStatus, TpSlConfig, VisionConfig } from "@/api/types"
 import {
   ChevronUp, ChevronDown, Plus, Trash2, RotateCcw,
   KeyRound, Bot, ShoppingCart, ShieldCheck, Save, RefreshCw,
   SlidersHorizontal, LogOut, Loader2, CheckCircle2, XCircle, Zap, Cable,
   Search, X, Palette, UserCircle, Clock, Archive, FileDown, Gift, Copy,
-  Bell, TrendingUp, TrendingDown, Camera, Settings as SettingsIcon,
+  Bell, TrendingUp, TrendingDown, Camera, Info, Settings as SettingsIcon,
 } from "lucide-react"
 
 const PROVIDER_NAMES: Record<string, { zh: string; en: string }> = {
@@ -1271,7 +1272,8 @@ export default function Settings() {
   }
 
   const authRequired = authStatus?.required
-  const [tab, setTab] = useTabParam("tab", "ai", ["account", "agent", "ai", "prefs"])
+  const desktopVersion = window.zfundpilotDesktopVersion
+  const [tab, setTab] = useTabParam("tab", "ai", ["account", "agent", "ai", "prefs", ...(desktopVersion ? ["about"] : [])])
   const activeTab = (tab === "account" || tab === "agent") && authRequired !== true ? "ai" : tab
 
   return (
@@ -1279,7 +1281,12 @@ export default function Settings() {
         <PageHeader title={t.settings.title} icon={<SettingsIcon className="h-5 w-5" />} />
 
       <Tabs value={activeTab} onValueChange={setTab}>
-        <TabsList className={cn("grid w-full sm:inline-flex sm:w-auto", authRequired ? "grid-cols-4" : "grid-cols-2")}>
+        <TabsList
+          className={cn(
+            "grid w-full sm:inline-flex sm:w-auto",
+            authRequired ? (desktopVersion ? "grid-cols-5" : "grid-cols-4") : (desktopVersion ? "grid-cols-3" : "grid-cols-2"),
+          )}
+        >
           {authRequired && (
             <>
               <TabsTrigger value="account" className="gap-1.5">
@@ -1300,6 +1307,12 @@ export default function Settings() {
             <SlidersHorizontal className="h-4 w-4" />
             <span className="hidden sm:inline">{t.settings.preferences}</span><span className="sm:hidden">{t.settings.prefs}</span>
           </TabsTrigger>
+          {desktopVersion && (
+            <TabsTrigger value="about" className="gap-1.5">
+              <Info aria-hidden className="h-4 w-4" />
+              {t.settings.about}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ── 账户与安全 ── */}
@@ -2203,6 +2216,11 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+        {desktopVersion && (
+          <TabsContent value="about">
+            <DesktopAbout version={desktopVersion} />
+          </TabsContent>
+        )}
       </Tabs>
       <ConfirmDialog
         open={deletingChannelIndex !== null}
