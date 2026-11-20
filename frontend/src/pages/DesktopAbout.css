@@ -1,0 +1,13 @@
+.about-hero {
+  --about-gradient-angle: 155deg;
+  background-image:
+    radial-gradient(ellipse 64% 110% at 100% 0%, rgb(38 240 226 / 82%), transparent),
+    radial-gradient(ellipse 53% 95% at 53% 116%, rgb(105 163 255 / 80%), transparent),
+    linear-gradient(var(--about-gradient-angle), #1343d3 6%, #2169f6 53%, #078ed1 100%);
+}
+
+@media (min-width: 640px) {
+  .about-hero {
+    --about-gradient-angle: 115deg;
+  }
+}
