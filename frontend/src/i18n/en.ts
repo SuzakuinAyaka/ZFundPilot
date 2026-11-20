@@ -475,7 +475,7 @@ const en: typeof zh = {
     about: "About",
     aboutHint: "ZFundPilot is a personal fund analysis & risk management system",
     aboutCurrentRepo: "Current repository",
-    aboutReleases: "Desktop installers",
+    aboutReleases: "Get the latest version",
     aboutUpstream: "Upstream project",
     aboutIssues: "Report an issue",
     license: "License",

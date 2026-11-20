@@ -473,7 +473,7 @@ const zh = {
     about: "关于",
     aboutHint: "ZFundPilot 是个人基金分析与风险管理系统",
     aboutCurrentRepo: "当前仓库",
-    aboutReleases: "桌面安装包",
+    aboutReleases: "获取最新版本",
     aboutUpstream: "上游项目",
     aboutIssues: "问题反馈",
     license: "开源协议",
