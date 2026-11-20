@@ -35,6 +35,8 @@ def verify_backend(executable, home, occupied_port):
                     assert client.get(urljoin(url, "/api/auth/status")).status_code == 403
                     page = client.get(url)
                     page.raise_for_status()
+                    assert page.url.query == b"desktop=1", "桌面启动未绕过旧首页缓存"
+                    assert page.headers.get("cache-control") == "no-store", "桌面首页允许被缓存"
                     script = re.search(r'<script[^>]+src="([^"]+)"', page.text)
                     assert script, "生产首页缺少前端构建产物"
                     client.get(urljoin(url, script[1])).raise_for_status()

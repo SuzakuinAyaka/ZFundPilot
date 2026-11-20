@@ -40,7 +40,8 @@ class DesktopAccess(BaseHTTPMiddleware):
 
         if request.method == "GET" and request.url.path == self.bootstrap:
             self.bootstrap = None
-            response = RedirectResponse("/", status_code=303)
+            # 使用独立入口地址，绕过升级前 WebView 对根页面留下的缓存。
+            response = RedirectResponse("/?desktop=1", status_code=303)
             response.set_cookie(COOKIE, self.session, httponly=True, samesite="strict")
             response.headers["Referrer-Policy"] = "no-referrer"
             response.headers["Cache-Control"] = "no-store"
@@ -51,7 +52,10 @@ class DesktopAccess(BaseHTTPMiddleware):
             return PlainTextResponse("Forbidden", status_code=403)
         if request.url.path.startswith("/_desktop/"):
             return PlainTextResponse("Forbidden", status_code=403)
-        return await call_next(request)
+        response = await call_next(request)
+        if response.headers.get("content-type", "").startswith("text/html"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
 
 def bind_listener(listener, preferred_port):
